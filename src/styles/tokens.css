@@ -1,0 +1,77 @@
+/* =============================================================================
+ * 设计令牌 —— 全站唯一的颜色 / 字号 / 间距 / 圆角 / 阴影 / 动效 来源
+ *
+ * 为什么单独一个文件：组件里出现裸 hex 之后就没有「改一处全站生效」的能力了。
+ * 这里也是唯一允许出现 hex 的两个文件之一（另一个是 base.css）。
+ * 结构上按语义命名（而非 green/blue），是为了将来加 [data-theme=dark] 时
+ * 只换这一层的值，组件一行都不用改。
+ * ============================================================================= */
+
+:root {
+  /* ---------- 色板（语义命名，为将来 [data-theme=dark] 留结构） ---------- */
+  --color-bg:               #F8F9FB;
+  --color-surface:          #FFFFFF;
+  --color-surface-sunken:   #F1F3F5;
+  --color-border:           #E5E8EB;
+  --color-border-strong:    #D3D8DE;
+  --color-ink:              #11161C;
+  --color-text:             #333B44;
+  --color-text-secondary:   #6E7781;
+  --color-text-tertiary:    #A5ADB8;
+  --color-brand:            #4F46E5;
+  --color-brand-strong:     #4338CA;
+  --color-brand-soft:       #EEF0FF;
+  --color-rose:             #E11D48;
+  --color-rose-soft:        #FFF1F3;
+  --color-success:          #0E9F6E;
+  --color-warning:          #B45309;
+  --color-danger:           #DC2626;
+  --color-danger-soft:      #FEF2F2;
+
+  /* ---------- 字号阶梯（基准 16 / Minor Third ≈1.25） ---------- */
+  --text-display-size: 40px;  --text-display-lh: 44px;
+  --text-h1-size:      32px;  --text-h1-lh:      40px;
+  --text-h2-size:      24px;  --text-h2-lh:      32px;
+  --text-h3-size:      20px;  --text-h3-lh:      28px;
+  --text-h4-size:      16px;  --text-h4-lh:      24px;
+  --text-bodyLg-size:  17px;  --text-bodyLg-lh:  28px;
+  --text-body-size:    15px;  --text-body-lh:    24px;
+  --text-sm-size:      13px;  --text-sm-lh:      20px;
+  --text-xs-size:      12px;  --text-xs-lh:      16px;
+  --font-weight-normal:   400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;   /* 标题只用 600，禁止 700/800 */
+
+  /* ---------- 字体栈（不引 Web Font） ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ---------- 间距（4px 栅格） ---------- */
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
+  --space-8: 32px;  --space-10: 40px; --space-12: 48px;
+  --space-16: 64px; --space-20: 80px; --space-24: 96px;
+
+  /* ---------- 圆角 ---------- */
+  --radius-sm: 6px;  --radius-md: 10px; --radius-lg: 14px;
+  --radius-xl: 20px; --radius-full: 9999px;
+
+  /* ---------- 阴影（三档，克制） ---------- */
+  --shadow-xs: 0 1px 2px rgba(16,24,40,.04);
+  --shadow-md: 0 4px 16px -4px rgba(16,24,40,.08), 0 2px 6px -2px rgba(16,24,40,.04);
+  --shadow-lg: 0 18px 48px -12px rgba(16,24,40,.18), 0 6px 16px -6px rgba(16,24,40,.06);
+
+  /* ---------- 动效 ---------- */
+  --ease-out: cubic-bezier(.22,.61,.36,1);
+  --dur-fast: 120ms;  --dur-base: 180ms;  --dur-slow: 240ms;
+
+  /* ---------- 布局 ---------- */
+  --container-xl: 1200px;   /* 首页三栏外框 */
+  --container-md: 720px;    /* 阅读区 / 编辑器主列 */
+  --nav-h: 64px;
+  --bp-sm: 640px; --bp-md: 768px; --bp-lg: 1024px; --bp-xl: 1280px;
+
+  /* ---------- 层级 ---------- */
+  --z-nav: 100; --z-drawer: 200; --z-menu: 210; --z-toast: 300;
+}

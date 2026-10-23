@@ -1,0 +1,266 @@
+/* =============================================================================
+ * article.css —— 阅读区排版（P0-27）
+ *
+ * 为什么单独一个文件：正文排版是「一套整体规则」，改动一次要能整体复审；
+ * 混在 components.css 里迟早被其它卡片样式污染。
+ * 所有颜色都取令牌：代码块深底用 --color-ink、代码字号色用 --color-border，
+ * 正好是设计稿要求的两个色值，不需要额外引入新色值。
+ * ============================================================================= */
+
+.markdown-body {
+  color: var(--color-text);
+  font-size: var(--text-bodyLg-size);
+  line-height: var(--text-bodyLg-lh);
+  word-wrap: break-word;
+}
+
+/* 锚点跳转时留出 sticky 导航的高度，否则标题会被导航盖住 */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  scroll-margin-top: calc(var(--nav-h) + var(--space-4));
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+.markdown-body h2 {
+  margin: var(--space-10) 0 var(--space-3);
+  font-size: var(--text-h2-size);
+  line-height: var(--text-h2-lh);
+}
+
+.markdown-body h3 {
+  margin: var(--space-8) 0 10px;
+  font-size: var(--text-h3-size);
+  line-height: var(--text-h3-lh);
+}
+
+.markdown-body h4 {
+  margin: var(--space-6) 0 var(--space-2);
+  font-size: var(--text-h4-size);
+  line-height: var(--text-h4-lh);
+}
+
+.markdown-body p {
+  margin: 0 0 var(--space-5);
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 var(--space-5);
+  padding-left: var(--space-6);
+  /* base.css 全局去掉了项目符号，这里必须为阅读区恢复 */
+  list-style: disc;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+}
+
+.markdown-body li {
+  margin-bottom: var(--space-2);
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: var(--space-2) 0 0;
+  list-style: circle;
+}
+
+/* 行内代码：与代码块区分——浅底 + 靛蓝字，一眼能看出「这是个标识符」 */
+.markdown-body code {
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-brand-strong);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+/* 代码块：深底 + 横向滚动（绝不换行，换行会让代码失去缩进语义） */
+.markdown-body pre {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-ink);
+  color: var(--color-border);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-size);
+  line-height: 1.65;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* 引用块：左侧 3px 强调色 + 极浅同色底 */
+.markdown-body blockquote {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  border-left: 3px solid var(--color-brand);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-brand-soft);
+  color: var(--color-text);
+}
+
+.markdown-body blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body table {
+  width: 100%;
+  margin: 0 0 var(--space-5);
+  border-collapse: collapse;
+  font-size: var(--text-sm-size);
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.markdown-body th {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 斑马纹：宽表横向读时靠行底色对齐，比加粗分割线更轻 */
+.markdown-body tbody tr:nth-child(even) {
+  background: var(--color-surface-sunken);
+}
+
+.markdown-body img {
+  margin: var(--space-6) auto;
+  border-radius: var(--radius-lg);
+}
+
+.markdown-body hr {
+  margin: var(--space-10) 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.markdown-body a {
+  color: var(--color-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--color-border-strong);
+}
+
+.markdown-body a:hover {
+  text-decoration-color: var(--color-brand);
+}
+
+/* -----------------------------------------------------------------------------
+ * 高亮主题（12 组规则）
+ *
+ * 不 import highlight.js 的任意 .css 主题：那些主题带大量裸 hex 与 !important，
+ * 一引入就会破坏「令牌唯一来源」的约束，且体积白送 ~10KB。
+ * 这里只映射到现有令牌，深底上的可读性靠对比度校验（靛蓝/绿/琥珀在近黑底上均 ≥4.5:1）。
+ * -------------------------------------------------------------------------- */
+
+/* 1 */
+.markdown-body .hljs-comment,
+.markdown-body .hljs-quote {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* 2 */
+.markdown-body .hljs-keyword,
+.markdown-body .hljs-literal,
+.markdown-body .hljs-built_in,
+.markdown-body .hljs-type {
+  color: var(--color-brand);
+}
+
+/* 3 */
+.markdown-body .hljs-string,
+.markdown-body .hljs-attr,
+.markdown-body .hljs-template-tag {
+  color: var(--color-success);
+}
+
+/* 4 */
+.markdown-body .hljs-number,
+.markdown-body .hljs-symbol {
+  color: var(--color-warning);
+}
+
+/* 5 */
+.markdown-body .hljs-title,
+.markdown-body .hljs-section {
+  color: var(--color-surface);
+}
+
+/* 6 */
+.markdown-body .hljs-variable,
+.markdown-body .hljs-params,
+.markdown-body .hljs-property {
+  color: var(--color-border);
+}
+
+/* 7 */
+.markdown-body .hljs-tag {
+  color: var(--color-brand);
+}
+
+/* 8 */
+.markdown-body .hljs-name,
+.markdown-body .hljs-selector-class,
+.markdown-body .hljs-selector-id {
+  color: var(--color-warning);
+}
+
+/* 9 */
+.markdown-body .hljs-meta,
+.markdown-body .hljs-doctag {
+  color: var(--color-text-secondary);
+}
+
+/* 10 */
+.markdown-body .hljs-addition {
+  color: var(--color-success);
+}
+
+/* 11 */
+.markdown-body .hljs-deletion {
+  color: var(--color-danger);
+}
+
+/* 12 */
+.markdown-body .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-body .hljs-strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* -----------------------------------------------------------------------------
+ * 移动端：正文降 1px 保持行密度，代码块继续横向滚动（不撑破页面）
+ * -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .markdown-body {
+    font-size: 16px;
+    line-height: 26px;
+  }
+
+  .markdown-body h2 {
+    margin-top: var(--space-8);
+  }
+
+  .markdown-body pre {
+    border-radius: var(--radius-sm);
+  }
+}

@@ -1,0 +1,129 @@
+/* =============================================================================
+ * base.css —— 重置 + 全局排版 + 可访问性基线
+ *
+ * 这里只放「每个页面都必须一致」的东西：box-sizing、body 排版、链接、焦点环、
+ * 选中色、以及 prefers-reduced-motion 兜底。任何只属于某个区块的样式都不该进来。
+ * ============================================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* iOS 横屏时禁止字号自动放大，否则中文正文会突然变粗变大 */
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+h1, h2, h3, h4, h5, h6,
+p, figure, blockquote, dl, dd, fieldset, legend {
+  margin: 0;
+}
+
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none; /* 阅读区的列表样式由 article.css 精确恢复，其余场景一律不要项目符号 */
+}
+
+img, svg, video {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-lh);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-ink);
+  /* 只用 600：700/800 在中文里会糊成一团，失去层级 */
+  font-weight: var(--font-weight-semibold);
+}
+
+a {
+  color: var(--color-brand);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+a:hover {
+  color: var(--color-brand-strong);
+}
+
+/* 键盘焦点必须可见：鼠标点击不触发（:focus-visible），键盘 Tab 一定触发 */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* 全局主列容器：所有视图都挂在这层下面，统一水平内边距 */
+.app-main {
+  display: block;
+  min-height: calc(100vh - var(--nav-h));
+}
+
+/* 屏幕阅读器专用文本（视觉隐藏但可被读出） */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 锚点跳转平滑滚动；只对「不介意动效」的用户开启 */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* =============================================================================
+ * 动效降级：前庭功能敏感 / 省电模式下，所有动画压缩到肉眼不可见的时长。
+ * 用 !important 是因为组件里的 scoped 样式优先级更高，不强制就压不住。
+ * ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
