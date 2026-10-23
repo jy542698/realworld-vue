@@ -23,6 +23,18 @@
           <article class="detail__card">
             <!-- 头区 -->
             <header class="detail__head">
+              <!--
+                草稿提示条。只有作者本人能走到这里：
+                他人或匿名访问草稿时后端直接返回 404，页面会进 missing 态。
+              -->
+              <div v-if="article.status === 'DRAFT'" class="detail__draft-bar">
+                <DraftPill />
+                <span class="detail__draft-text">这篇还是草稿，只有你能看到。</span>
+                <router-link :to="`/editor/${article.slug}`" class="detail__draft-link">
+                  继续编辑 →
+                </router-link>
+              </div>
+
               <div v-if="article.tagList?.length" class="detail__tags">
                 <TagPill
                   v-for="tag in article.tagList"
@@ -151,6 +163,7 @@ import MarkdownBody from '../components/ui/MarkdownBody.vue'
 import TocAside from '../components/ui/TocAside.vue'
 import TagPill from '../components/ui/TagPill.vue'
 import Avatar from '../components/ui/Avatar.vue'
+import DraftPill from '../components/ui/DraftPill.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import StateLoading from '../components/ui/StateLoading.vue'
 import StateEmpty from '../components/ui/StateEmpty.vue'
@@ -337,6 +350,35 @@ watch(slug, load, { immediate: true })
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* 草稿提示条：用中性底而不是警告色 —— 草稿是正常状态，不是错误 */
+.detail__draft-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.detail__draft-text {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-lh);
+}
+
+.detail__draft-link {
+  margin-left: auto;
+  color: var(--color-brand);
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-lh);
+}
+
+.detail__draft-link:hover {
+  color: var(--color-brand-strong);
 }
 
 .detail__title {

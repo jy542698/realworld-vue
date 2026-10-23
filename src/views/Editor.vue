@@ -8,6 +8,7 @@
             <AppIcon name="chevron-left" :size="20" />
           </button>
           <span class="editor__status">{{ isEdit ? '编辑中' : '新建文章' }}</span>
+          <DraftPill v-if="isDraft" />
         </div>
 
         <div class="editor__toolbar-right">
@@ -32,12 +33,19 @@
 
           <button
             type="button"
+            class="btn btn--ghost btn--pill"
+            :disabled="submitting || loading"
+            @click="saveDraft"
+          >{{ draftButtonLabel }}</button>
+
+          <button
+            type="button"
             class="btn btn--primary btn--pill"
             :disabled="submitting || loading"
-            @click="submit"
+            @click="publish"
           >
             <span v-if="submitting" class="editor__spinner" aria-hidden="true" />
-            {{ submitting ? '发布中…' : isEdit ? '保存修改' : '发布文章' }}
+            {{ submitting ? '处理中…' : isEdit ? '发布' : '发布文章' }}
           </button>
         </div>
       </div>
@@ -76,6 +84,13 @@
 
         <div class="editor__divider" />
 
+        <div class="editor__body-tools">
+          <button type="button" class="btn btn--ghost btn--pill" @click="openImageDialog">
+            <AppIcon name="plus" :size="16" />
+            插入图片
+          </button>
+        </div>
+
         <textarea
           ref="bodyRef"
           v-model="form.body"
@@ -96,6 +111,12 @@
         </div>
       </section>
     </div>
+
+    <ImageUploadDialog
+      :open="imageDialogOpen"
+      @close="imageDialogOpen = false"
+      @inserted="onImageInserted"
+    />
   </div>
 </template>
 
@@ -120,6 +141,8 @@ import AppIcon from '../components/ui/AppIcon.vue'
 import TagInput from '../components/TagInput.vue'
 import MarkdownBody from '../components/ui/MarkdownBody.vue'
 import StateLoading from '../components/ui/StateLoading.vue'
+import DraftPill from '../components/ui/DraftPill.vue'
+import ImageUploadDialog from '../components/editor/ImageUploadDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -138,8 +161,29 @@ const submitting = ref(false)
 const bodyRef = ref(null)
 // 已保存内容的快照，用来判断「有没有未保存的改动」
 const snapshot = ref('')
+// 已保存的文章状态：null = 还没保存过（新建）。
+// 不能用 "DRAFT" 当新建的默认值 —— 那会让按钮一打开就显示「更新草稿」，
+// 还显示一个草稿胶囊，而这时后端根本还没有这篇草稿。
+const savedStatus = ref(null)
+const imageDialogOpen = ref(false)
+// 打开插图对话框前必须记下光标位置：对话框抢走焦点后 textarea 的 selection 会丢，
+// 插图时就没法知道该插在哪一段。
+const savedSelection = ref({ start: 0, end: 0 })
 
 const isEdit = computed(() => typeof route.params.slug === 'string' && !!route.params.slug)
+// 只有「已保存的草稿」才显示草稿胶囊
+const isDraft = computed(() => savedStatus.value === 'DRAFT')
+/**
+ * 草稿按钮文案按当前状态区分，避免歧义：
+ * - 没保存过 → 存草稿
+ * - 已是草稿 → 更新草稿
+ * - 已发布   → 转为草稿（对已发布文章说「存草稿」会让人以为会另存一份）
+ */
+const draftButtonLabel = computed(() => {
+  if (savedStatus.value === 'DRAFT') return '更新草稿'
+  if (savedStatus.value === 'PUBLISHED') return '转为草稿'
+  return '存草稿'
+})
 const isDirty = computed(() => serialize(form) !== snapshot.value)
 
 function serialize(source) {
@@ -163,13 +207,46 @@ function autoGrow() {
   el.style.height = `${el.scrollHeight}px`
 }
 
+/** 打开插图对话框前先记住光标：对话框会抢走焦点 */
+function openImageDialog() {
+  const el = bodyRef.value
+  savedSelection.value = {
+    start: el?.selectionStart ?? form.body.length,
+    end: el?.selectionEnd ?? form.body.length
+  }
+  imageDialogOpen.value = true
+}
+
+/** 在光标处插入 Markdown 图片语法，并把光标移到插入内容之后，方便接着写 */
+function onImageInserted(url) {
+  const md = `\n![图片](${url})\n`
+  const { start, end } = savedSelection.value
+  form.body = form.body.slice(0, start) + md + form.body.slice(end)
+  errors.body = ''
+  nextTick(() => {
+    const el = bodyRef.value
+    if (!el) return
+    el.focus()
+    const pos = start + md.length
+    el.setSelectionRange(pos, pos)
+    autoGrow()
+  })
+}
+
 function goBack() {
   if (window.history.length > 1) router.back()
   else router.push('/')
 }
 
-/** 客户端校验：任何一条不通过都不发请求 */
-function validate() {
+/**
+ * 客户端校验。
+ *
+ * @param {boolean} publishing true = 要发布（标题/正文必填）；false = 存草稿（只校验长度）
+ *
+ * 草稿允许什么都不填 —— 用户可能只是想先把一段想法存下来，
+ * 这时候卡「标题不能为空」就是在阻止他保存。
+ */
+function validate(publishing) {
   errors.title = ''
   errors.description = ''
   errors.body = ''
@@ -178,19 +255,36 @@ function validate() {
   const body = form.body.trim()
   const description = form.description.trim()
 
-  if (!title) errors.title = '标题不能为空'
-  else if (title.length > 128) errors.title = '标题不能超过 128 个字符'
+  if (title.length > 128) errors.title = '标题不能超过 128 个字符'
+  else if (publishing && !title) errors.title = '标题不能为空'
 
   if (description.length > 256) errors.description = '简介不能超过 256 个字符'
 
-  if (!body) errors.body = '正文不能为空'
+  if (publishing && !body) errors.body = '正文不能为空'
 
   return !errors.title && !errors.description && !errors.body
 }
 
-async function submit() {
+function saveDraft() {
+  return submit(false)
+}
+
+function publish() {
+  return submit(true)
+}
+
+/**
+ * 保存文章。
+ *
+ * @param {boolean} publishing true = 发布，false = 存草稿
+ *
+ * 存草稿成功后**留在编辑器**（不跳详情页）：继续写才是最可能的下一步，
+ * 而且首次存草稿要把 URL 从 /editor 换成 /editor/{slug}，
+ * 否则再点一次「存草稿」会又新建一篇。
+ */
+async function submit(publishing) {
   if (submitting.value) return
-  if (!validate()) {
+  if (!validate(publishing)) {
     // 把焦点送到第一个出错的字段，键盘用户不用自己去摸
     if (errors.title) document.querySelector('.editor__title')?.focus()
     else if (errors.body) bodyRef.value?.focus()
@@ -202,7 +296,8 @@ async function submit() {
     title: form.title.trim(),
     description: form.description.trim(),
     body: form.body,
-    tagList: form.tagList
+    tagList: form.tagList,
+    draft: !publishing
   }
 
   try {
@@ -212,13 +307,20 @@ async function submit() {
 
     const saved = data?.article
     if (!saved?.slug) {
-      toast.error('发布失败，请稍后重试')
+      toast.error('保存失败，请稍后重试')
       return
     }
+    savedStatus.value = saved.status || (publishing ? 'PUBLISHED' : 'DRAFT')
     // 保存成功后快照同步，离开保护不再拦截
     snapshot.value = serialize(form)
-    toast.success(isEdit.value ? '修改已保存' : '文章已发布')
-    router.push(`/article/${saved.slug}`)
+
+    if (publishing) {
+      toast.success(isEdit.value ? '已发布' : '文章已发布')
+      router.push(`/article/${saved.slug}`)
+    } else {
+      toast.success('已保存到草稿箱')
+      if (!isEdit.value) router.replace(`/editor/${saved.slug}`)
+    }
   } catch (e) {
     const { fieldMap, first } = extractErrors(e)
     const titleError = pickFieldError(fieldMap, 'title')
@@ -261,6 +363,7 @@ async function loadArticle(slug) {
     form.description = article.description || ''
     form.body = article.body || ''
     form.tagList = Array.isArray(article.tagList) ? [...article.tagList] : []
+    savedStatus.value = article.status || 'PUBLISHED'
     snapshot.value = serialize(form)
     await nextTick()
     autoGrow()
@@ -453,6 +556,14 @@ onBeforeRouteLeave(() => {
   height: 1px;
   margin: var(--space-4) 0;
   background: var(--color-border);
+}
+
+/* 正文上方的小工具条：目前只有「插入图片」，后续加粗体/链接都往这里放 */
+.editor__body-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .editor__body {

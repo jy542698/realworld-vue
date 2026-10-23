@@ -42,6 +42,12 @@ const routes = [
     meta: { title: '个人主页' }
   },
   {
+    path: '/tags',
+    name: 'tags',
+    component: () => import('../views/Tags.vue'),
+    meta: { title: '标签' }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/Settings.vue'),

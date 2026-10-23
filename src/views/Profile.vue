@@ -71,18 +71,27 @@
 
           <StateEmpty
             v-else-if="!articles.length"
-            :title="tab === 'favorited' ? '还没有收藏文章' : '还没有发布文章'"
-            :description="tab === 'favorited' ? '看到好文章点一下 ♡ 就会出现在这里。' : '写下第一篇，让别人认识你。'"
+            :title="emptyTitle"
+            :description="emptyDescription"
           >
-            <router-link v-if="isSelf && tab === 'authored'" to="/editor" class="btn btn--primary btn--pill">
-              写第一篇
-            </router-link>
+            <router-link
+              v-if="isSelf && tab !== 'favorited'"
+              to="/editor"
+              class="btn btn--primary btn--pill"
+            >{{ tab === 'drafts' ? '去写一篇' : '写第一篇' }}</router-link>
             <router-link v-else to="/" class="btn btn--ghost btn--pill">去首页逛逛</router-link>
           </StateEmpty>
 
           <ul v-else class="profile__cards">
+            <!-- 草稿箱用 DraftCard（带发布/删除动作），其余 Tab 复用公开卡片 -->
+            <DraftCard
+              v-for="item in (tab === 'drafts' ? articles : [])"
+              :key="'draft-' + item.slug"
+              :article="item"
+              @changed="refreshAfterChange"
+            />
             <ArticleCard
-              v-for="item in articles"
+              v-for="item in (tab === 'drafts' ? [] : articles)"
               :key="item.slug"
               :article="item"
               compact
@@ -114,7 +123,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listArticles } from '../api/article'
+import { listArticles, listDrafts } from '../api/article'
 import { follow, getProfile, unfollow } from '../api/profile'
 import { auth } from '../store/auth'
 import { toast } from '../composables/useToast'
@@ -122,6 +131,7 @@ import { extractErrors } from '../utils/errors'
 import Avatar from '../components/ui/Avatar.vue'
 import TabBar from '../components/home/TabBar.vue'
 import ArticleCard from '../components/ArticleCard.vue'
+import DraftCard from '../components/profile/DraftCard.vue'
 import Pager from '../components/ui/Pager.vue'
 import StateLoading from '../components/ui/StateLoading.vue'
 import StateEmpty from '../components/ui/StateEmpty.vue'
@@ -140,26 +150,57 @@ const articlesTotal = ref(0)
 const followPending = ref(false)
 // 「收藏」Tab 的条数（profile 接口只给 articlesCount，收藏数要靠列表响应带回来）
 const favoritedTotal = ref(null)
+// 草稿箱条数，同样只能从列表响应里拿
+const draftsTotal = ref(null)
 
 const username = computed(() => (typeof route.params.username === 'string' ? route.params.username : ''))
-const tab = computed(() => (route.query.tab === 'favorited' ? 'favorited' : 'authored'))
+const isSelf = computed(() => auth.isOwner(username.value))
+const tab = computed(() => {
+  const raw = route.query.tab
+  if (raw === 'favorited') return 'favorited'
+  // 草稿箱只属于本人：别人带 ?tab=drafts 进来一律回落成「文章」，
+  // 否则会出现一个空 Tab，还可能让人误以为能看别人的草稿。
+  if (raw === 'drafts' && isSelf.value) return 'drafts'
+  return 'authored'
+})
 const page = computed(() => {
   const parsed = Number.parseInt(route.query.page, 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
 })
 const pageCount = computed(() => Math.max(1, Math.ceil(articlesTotal.value / PAGE_SIZE)))
-const isSelf = computed(() => auth.isOwner(username.value))
 const articlesPending = computed(
   () => articlesStatus.value === 'idle' || articlesStatus.value === 'loading'
 )
 
-const tabs = computed(() => [
-  { key: 'authored', label: `文章 (${profile.value?.articlesCount ?? 0})` },
-  {
-    key: 'favorited',
-    label: favoritedTotal.value === null ? '收藏' : `收藏 (${favoritedTotal.value})`
+// 空态文案按当前 Tab 分支，避免「草稿箱为空」时显示「还没有发布文章」
+const emptyTitle = computed(() => {
+  if (tab.value === 'favorited') return '还没有收藏文章'
+  if (tab.value === 'drafts') return '草稿箱是空的'
+  return '还没有发布文章'
+})
+const emptyDescription = computed(() => {
+  if (tab.value === 'favorited') return '看到好文章点一下 ♡ 就会出现在这里。'
+  if (tab.value === 'drafts') return '在编辑器里点「存草稿」，未完成的文章会先放在这里。'
+  return '写下第一篇，让别人认识你。'
+})
+
+const tabs = computed(() => {
+  const list = [
+    { key: 'authored', label: `文章 (${profile.value?.articlesCount ?? 0})` },
+    {
+      key: 'favorited',
+      label: favoritedTotal.value === null ? '收藏' : `收藏 (${favoritedTotal.value})`
+    }
+  ]
+  // 草稿箱只对本人显示：他人主页不出现这个 Tab
+  if (isSelf.value) {
+    list.push({
+      key: 'drafts',
+      label: draftsTotal.value === null ? '草稿箱' : `草稿箱 (${draftsTotal.value})`
+    })
   }
-])
+  return list
+})
 
 async function loadProfile() {
   if (!username.value) {
@@ -186,17 +227,22 @@ async function loadProfile() {
 async function loadArticles() {
   if (!username.value) return
   articlesStatus.value = 'loading'
+  const paging = { limit: PAGE_SIZE, offset: (page.value - 1) * PAGE_SIZE }
   try {
-    const params =
-      tab.value === 'favorited'
-        ? { favorited: username.value, limit: PAGE_SIZE, offset: (page.value - 1) * PAGE_SIZE }
-        : { author: username.value, limit: PAGE_SIZE, offset: (page.value - 1) * PAGE_SIZE }
-    const { data } = await listArticles(params)
+    // 草稿箱走独立端点（后端只返回本人的草稿）；另外两个 Tab 复用 listArticles 的不同筛选键
+    const request =
+      tab.value === 'drafts'
+        ? listDrafts(paging)
+        : listArticles(
+            tab.value === 'favorited'
+              ? { favorited: username.value, ...paging }
+              : { author: username.value, ...paging }
+          )
+    const { data } = await request
     articles.value = Array.isArray(data?.articles) ? data.articles : []
     articlesTotal.value = Number(data?.articlesCount) || 0
-    if (tab.value === 'favorited') {
-      favoritedTotal.value = articlesTotal.value
-    }
+    if (tab.value === 'favorited') favoritedTotal.value = articlesTotal.value
+    if (tab.value === 'drafts') draftsTotal.value = articlesTotal.value
     articlesStatus.value = 'success'
   } catch (e) {
     const { first } = extractErrors(e)
@@ -244,10 +290,16 @@ async function toggleFollow() {
 /** Tab 只写 URL（authored 是默认值，不写进 URL 保持链接干净）；切 Tab 回第 1 页 */
 function onTabChange(key) {
   const next = { ...route.query }
-  if (key === 'favorited') next.tab = 'favorited'
-  else delete next.tab
+  if (key === 'authored') delete next.tab
+  else next.tab = key
   delete next.page
   router.replace({ query: next })
+}
+
+/** 草稿发布/删除后：列表与资料卡上的计数都要跟着变 */
+function refreshAfterChange() {
+  loadArticles()
+  loadProfile()
 }
 
 function onPageChange(nextPage) {
@@ -267,6 +319,7 @@ watch(username, () => {
   articles.value = []
   articlesTotal.value = 0
   favoritedTotal.value = null
+  draftsTotal.value = null
   profileStatus.value = 'idle'
   articlesStatus.value = 'idle'
   loadProfile()

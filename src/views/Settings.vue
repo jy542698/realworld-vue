@@ -11,7 +11,7 @@
           <h2 class="settings__group-title">个人资料</h2>
 
           <div class="field">
-            <label class="field__label" for="settings-image">头像地址</label>
+            <label class="field__label" for="settings-image">头像</label>
             <div class="settings__avatar-row">
               <Avatar :src="form.image" :username="form.username" :size="40" />
               <input
@@ -19,9 +19,24 @@
                 v-model="form.image"
                 class="input"
                 type="text"
-                placeholder="https://…"
+                placeholder="粘贴图片地址，或点右侧上传"
+              />
+              <button
+                type="button"
+                class="btn btn--ghost settings__upload"
+                :disabled="uploadingAvatar"
+                @click="pickAvatar"
+              >{{ uploadingAvatar ? '上传中…' : '上传' }}</button>
+              <!-- 隐藏的原生 file input：样式无法定制，所以用按钮代理点击 -->
+              <input
+                ref="avatarInput"
+                class="settings__file"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                @change="onAvatarPick"
               />
             </div>
+            <p class="field__hint">上传后会立即回填地址并预览，仍需点「保存设置」才会真正生效。</p>
             <p v-if="fieldErrors.image" class="field__error">{{ fieldErrors.image }}</p>
           </div>
 
@@ -105,6 +120,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { updateUser } from '../api/user'
+import { uploadImage } from '../api/image'
 import { auth } from '../store/auth'
 import { toast } from '../composables/useToast'
 import { extractErrors, pickFieldError } from '../utils/errors'
@@ -122,6 +138,8 @@ const form = reactive({
 })
 
 const saving = ref(false)
+const uploadingAvatar = ref(false)
+const avatarInput = ref(null)
 const alertMessage = ref('')
 const fieldErrors = reactive({ email: '', bio: '', image: '', password: '', password2: '' })
 
@@ -148,6 +166,50 @@ function validate() {
   }
 
   return !fieldErrors.email && !fieldErrors.bio && !fieldErrors.password && !fieldErrors.password2
+}
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024
+
+function pickAvatar() {
+  avatarInput.value?.click()
+}
+
+/**
+ * 头像上传。
+ *
+ * 上传成功只把 URL 回填到表单，**不立刻落库** —— 用户可能还想顺手改简介，
+ * 统一在「保存设置」时一次提交，避免出现「头像已生效但简介没保存」的半吊子状态。
+ */
+async function onAvatarPick(event) {
+  const file = event.target.files?.[0]
+  // 清空，保证连续选同一个文件也能触发 change
+  event.target.value = ''
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    toast.error('请选择图片文件')
+    return
+  }
+  if (file.size > AVATAR_MAX_BYTES) {
+    toast.error('图片超过大小上限（最大 5MB）')
+    return
+  }
+
+  uploadingAvatar.value = true
+  try {
+    const { data } = await uploadImage(file)
+    const url = data?.image?.url
+    if (!url) {
+      toast.error('上传失败，请重试')
+      return
+    }
+    form.image = url
+    toast.success('头像已上传，点「保存设置」后生效')
+  } catch (e) {
+    toast.error(extractErrors(e).first)
+  } finally {
+    uploadingAvatar.value = false
+  }
 }
 
 async function save() {
@@ -274,6 +336,20 @@ watch(
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.settings__avatar-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings__upload {
+  flex: none;
+}
+
+/* 原生 file input 无法定制外观，隐藏后由上面的「上传」按钮代理点击 */
+.settings__file {
+  display: none;
 }
 
 .settings__actions {

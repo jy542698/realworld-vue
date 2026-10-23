@@ -18,9 +18,7 @@
 
       <p v-else class="sidebar__muted">暂无标签</p>
 
-      <button v-if="hotTags.length" type="button" class="sidebar__more" @click="toggleAll">
-        {{ showAll ? '收起' : '查看全部 →' }}
-      </button>
+      <router-link v-if="hotTags.length" to="/tags" class="sidebar__more">查看全部 →</router-link>
     </section>
 
     <!-- 卡 2：本周热门（没有稳定的"推荐作者"接口，就不做，绝不编数据） -->
@@ -52,10 +50,9 @@
  * 绝不弹 Toast —— 首页主列表已经有一套错误提示，侧栏再弹一次就是噪音。
  *
  * 热门标签的数据由 Home 请求一次后 props 下传（左栏要用同一份），
- * 这里只在「查看全部」时再拉一次全量标签列表。
+ * 「查看全部」直接跳独立标签页 /tags，不再就地展开全量（那样既没有 URL 也没有计数）。
  */
 import { computed, onMounted, ref } from 'vue'
-import { listTags } from '../../api/tag'
 import { listArticles } from '../../api/article'
 import TagPill from '../ui/TagPill.vue'
 import StateLoading from '../ui/StateLoading.vue'
@@ -68,34 +65,11 @@ const props = defineProps({
 
 defineEmits(['tag-click'])
 
-const allTags = ref([])
 const hotArticles = ref([])
 const hotLoading = ref(true)
-const showAll = ref(false)
 
-const visibleTags = computed(() => {
-  if (showAll.value && allTags.value.length) {
-    return allTags.value.map((name) => ({ name, count: null }))
-  }
-  return props.hotTags
-})
-
-async function toggleAll() {
-  if (showAll.value) {
-    showAll.value = false
-    return
-  }
-  // 首次展开才拉全量标签：多数用户不会点，没必要每次都请求
-  if (!allTags.value.length) {
-    try {
-      const { data } = await listTags()
-      allTags.value = Array.isArray(data?.tags) ? data.tags : []
-    } catch (e) {
-      allTags.value = []
-    }
-  }
-  showAll.value = true
-}
+// 只展示 Home 下传的那一份，本组件不再自己拉全量
+const visibleTags = computed(() => props.hotTags)
 
 onMounted(async () => {
   try {

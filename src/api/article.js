@@ -30,6 +30,16 @@ export function getFeed({ limit, offset } = {}) {
   return client.get('/articles/feed', { params: cleanParams({ limit, offset }) })
 }
 
+/**
+ * 我的草稿箱：GET /articles/drafts -> { articles, articlesCount }
+ * 必须登录（未登录后端 401）。只返回当前用户自己的草稿。
+ *
+ * @param {object} paging { limit, offset }
+ */
+export function listDrafts({ limit, offset } = {}) {
+  return client.get('/articles/drafts', { params: cleanParams({ limit, offset }) })
+}
+
 // 单篇文章：GET /articles/{slug}  -> { article: {...} }（后端会顺手把 viewCount +1）
 export function getArticle(slug) {
   return client.get(`/articles/${slug}`)

@@ -6,3 +6,4 @@ dist-prev-build
 *.local
 .env
 .env.*
+dist-t2

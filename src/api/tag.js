@@ -15,3 +15,13 @@ export function listTags() {
 export function getHotTags(limit = 10) {
   return client.get('/tags/hot', { params: { limit } })
 }
+
+/**
+ * 全量标签统计：GET /tags/stats -> { tags: [{ name, count }] }
+ *
+ * 与 /tags/hot 的区别：hot 是 top-N（默认 10 条），stats 是全量，供独立标签页展示。
+ * 只统计**已发布**文章，仅在草稿里出现的标签不会出现在这里。
+ */
+export function getTagStats() {
+  return client.get('/tags/stats')
+}
